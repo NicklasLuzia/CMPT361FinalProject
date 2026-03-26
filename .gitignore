@@ -1,0 +1,21 @@
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Secrets / keys (IMPORTANT for your project)
+*.pem
+*.key
+*.env
