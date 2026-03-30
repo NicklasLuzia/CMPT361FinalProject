@@ -10,21 +10,41 @@ BUFFER_SIZE = 4096
 
 
 # Placeholder Crypto Helpers
-
-def rsa_decrypt(data):
+def load_private_key(filename):
+    """
+    What it does: obtains the server's private key
+    
+    Parameters:
+        filename: the name of the file that contains the server's private key
+        
+    Returns:
+        Private key ()
+    
+    
+    """
+    with open(filename, "rb") as file:
+        return RSA.import_key(file.read())
+    
+def load_public_key(filename):
+    with open(filename, "rb") as file:
+        return RSA.import_key(file.read())
+        
+def rsa_decrypt(key, data):
     """
     Placeholder for RSA decryption.
     Replace later with real server private key decryption.
     """
-    return data
+    data_decoded = PKCS1_OAEP.new(key)
+    return data_decoded.decrypt(data).decode()
 
 
-def rsa_encrypt(data):
+def rsa_encrypt(key, data):
     """
     Placeholder for RSA encryption.
     Replace later if needed.
     """
-    return data
+    data_encoded = PKCS1_OAEP.new(key)
+    return data_encoded.encrypt(data)
 
 
 def aes_encrypt(data, sym_key):
@@ -48,7 +68,8 @@ def generate_sym_key():
     Placeholder symmetric key.
     Replace later with real 256-bit AES key generation.
     """
-    return "dummy_sym_key"
+    key = os.urandom(32) #aes 256
+    return key
 
 # File / User Setup Helpers
 
@@ -657,10 +678,12 @@ def handle_client(conn, users):
     """
     username = ""
     sym_key = ""
-
+    server_private_key = load_private_key("server_private.pem")
     #Login Phase
-    login_data = recv_text(conn)
-    login_data = rsa_decrypt(login_data)
+    #login_data = recv_text(conn)
+    #login_data = rsa_decrypt(login_data)
+    login_data = conn.recv(BUFFER_SIZE)
+    login_data = rsa_decrypt(server_private_key, login_data)
 
     # Placeholder login parsing:
     # expected format: username\npassword
@@ -680,8 +703,10 @@ def handle_client(conn, users):
         return
 
     sym_key = generate_sym_key()
-    encrypted_key = rsa_encrypt(sym_key)
-    send_text(conn, encrypted_key)
+    public_key = load_public_key(f"{username}_public.pem")
+    encrypted_key = rsa_encrypt(public_key, sym_key)
+    #send_text(conn, encrypted_key)
+    conn.sendall(encrypted_key)
 
     print("Connection Accepted and Symmetric Key Generated for client:", username)
 
