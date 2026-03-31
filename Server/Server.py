@@ -1,3 +1,8 @@
+# server.py - server for the secure mail transfer program.
+# For CMPT 361 Final Project
+# Instructor: Mahdi D. Firoozjaei
+# Authors: Gabriel Young, Ethan Stevenson, Parker Mack, Nicklas Luzia
+
 import socket
 import json
 import os
