@@ -369,6 +369,9 @@ def parse_email(email_data):
         return None
     if email_info["title"] == "":
         return None
+    # Enforce assignment constraints for title/content lengths.
+    if len(email_info["title"]) > 100:
+        return None
     if content_start == -1:
         return None
 
@@ -383,6 +386,8 @@ def parse_email(email_data):
     email_info["content"] = content
 
     if len(email_info["content"]) != email_info["content_length"]:
+        return None
+    if email_info["content_length"] > 1000000:
         return None
 
     return email_info
