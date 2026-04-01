@@ -181,7 +181,7 @@ def login(sock: socket.socket, server_pub):
     """
     username = input("Enter your username: ")
     password = input("Enter your password: ")
-    credentials = f"{username}:{password}"
+    credentials = f"{username}\n{password}"
 
     # Load this user's private key
     try:
@@ -293,9 +293,6 @@ def main(port):
         username, sym_key = login(sock, server_pub_key)
 
         running = True if sym_key else False
-
-        with open("client1_private.pem", "rb") as f:
-            client_priv_key = RSA.import_key(f.read())
 
         while running:
             menu = recv_decrypted(sock, sym_key)

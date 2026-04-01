@@ -1,3 +1,8 @@
+# server.py - server for the secure mail transfer program.
+# For CMPT 361 Final Project
+# Instructor: Mahdi D. Firoozjaei
+# Authors: Gabriel Young, Ethan Stevenson, Parker Mack, Nicklas Luzia
+
 import socket
 import json
 import os
@@ -746,7 +751,7 @@ def handle_client(conn, users):
 
     # Placeholder login parsing:
     # expected format: username:password
-    username, password = login_data.split(":")
+    username, password = login_data.split("\n")
 
     if not validate_user(username, password, users):
         send_text(conn, "Invalid username or password")
