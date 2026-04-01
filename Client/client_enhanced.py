@@ -29,7 +29,17 @@ def unpad_16bytes(data):
         data: the decrypted data with padding
     Returns: the original raw data with padding removed
     """
+    if len(data) == 0:
+        raise ValueError("Invalid padded data.")
+
     padding_length = data[-1]
+
+    if padding_length < 1 or padding_length > 16:
+        raise ValueError("Invalid padding length.")
+
+    if data[-padding_length:] != bytes([padding_length]) * padding_length:
+        raise ValueError("Invalid padding bytes.")
+
     return data[:-padding_length]
 
 
@@ -54,6 +64,9 @@ def aes_decrypt(data, sym_key):
         sym_key: the symmetric key used for decryption
     Returns: the decrypted data as a string with padding removed
     """
+    if data is None or len(data) == 0 or len(data) % 16 != 0:
+        raise ValueError("Invalid encrypted payload size.")
+
     cipher = AES.new(sym_key, AES.MODE_ECB)
     decrypted_data = cipher.decrypt(data)
     return unpad_16bytes(decrypted_data).decode("ascii")
@@ -163,6 +176,9 @@ def recv_decrypted(sock, sym_key):
         str decrypted message
     """
     data = recv(sock)
+    if data is None:
+        return None
+
     return aes_decrypt(data, sym_key)
 
 
@@ -187,8 +203,10 @@ def login(sock: socket.socket, server_pub):
     try:
         with open(f"{username}_private.pem", "rb") as f:
             client_priv = RSA.import_key(f.read())
-    except:
-        pass    # The server still expects a message from the user and will report a failure
+    except (OSError, ValueError):
+        print("Unable to load your private key. Terminating.")
+        sock.close()
+        return None, None
 
     # Encrypt credentials and send
     cipher_rsa_enc = PKCS1_OAEP.new(server_pub)
@@ -199,6 +217,11 @@ def login(sock: socket.socket, server_pub):
     # Receive symmetric key OR error message
     response = recv(sock)
 
+    if response is None:
+        print("Connection closed by server.\nTerminating.")
+        sock.close()
+        return None, None
+
     if response == b"Invalid username or password":
         print("Invalid username or password.\nTerminating.")
         sock.close()
@@ -206,7 +229,17 @@ def login(sock: socket.socket, server_pub):
     
     # Decrypt and return symmetric key
     cipher_rsa_dec = PKCS1_OAEP.new(client_priv)
-    sym_key = cipher_rsa_dec.decrypt(response)
+    try:
+        sym_key = cipher_rsa_dec.decrypt(response)
+    except ValueError:
+        print("Failed to decrypt session key.\nTerminating.")
+        sock.close()
+        return None, None
+
+    if len(sym_key) != 32:
+        print("Invalid symmetric key length received.\nTerminating.")
+        sock.close()
+        return None, None
 
     send_encrypted(sock, "OK", sym_key)
 
@@ -220,7 +253,11 @@ def send_email(sock: socket.socket, username: str, sym_key: bytes):
     print(message)
     
     recipients = input("Enter destinations (separated by ;): ")
-    title = input("Enter title: ")[:100]
+
+    title = input("Enter title: ")
+    while len(title) > 100:
+        print("Title exceeds 100 characters. Please enter a shorter title.")
+        title = input("Enter title: ")
 
     body = ""
 
@@ -229,13 +266,19 @@ def send_email(sock: socket.socket, username: str, sym_key: bytes):
     if from_file.lower() == "y":
         filename = input("Enter filename: ")
 
-        with open(filename, "r") as f:
-            body = f.read()
+        try:
+            with open(filename, "r") as f:
+                body = f.read()
+        except OSError:
+            print("Unable to read file. Returning to menu.\n")
+            return
 
     else:
         body = input("Enter message contents: ")
 
-    body = body[:1000000]
+    if len(body) > 1000000:
+        print("Message contents exceed 1000000 characters. Email was not sent.\n")
+        return
 
     # Construct the email formatted with message details.
     email = f"From: {username}\nTo: {recipients}\nTitle: {title}\n" + \
@@ -295,7 +338,16 @@ def main(port):
         running = True if sym_key else False
 
         while running:
-            menu = recv_decrypted(sock, sym_key)
+            try:
+                menu = recv_decrypted(sock, sym_key)
+            except (ValueError, UnicodeDecodeError):
+                print("Received invalid encrypted data from server.\nTerminating.")
+                break
+
+            if menu is None:
+                print("Server closed the connection.")
+                break
+
             print(menu, end="")
             choice = input()
 
